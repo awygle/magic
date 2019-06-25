@@ -27,6 +27,26 @@ impl MemoryBus for Memory {
     }
 }
 
+pub struct InterpCPU32bit<MB: MemoryBus> {
+    pc: u32,
+    bus: MB,
+}
+
+pub trait CPU {
+    fn new(pifrom_src: &mut impl std::io::Read) -> Self;
+}
+
+const RESET_VECTOR_32: u32 = 0xBC00_0000;
+
+impl<MB: MemoryBus> CPU for InterpCPU32bit<MB> {
+    fn new(pifrom_src: &mut impl std::io::Read) -> Self {
+        InterpCPU32bit {
+            pc: RESET_VECTOR_32,
+            bus: MB::new(pifrom_src),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
