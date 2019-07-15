@@ -17,7 +17,7 @@ fn main() {
         Ok(file) => file,
     };
 
-    let _cpu = InterpCPU32bit::<Memory>::new(&mut file);
+    let _cpu = InterpCPU32bit::<Memory, ICache, MMU32Bit>::new(&mut file);
 
     println!("{:#?}", opts);
 }
