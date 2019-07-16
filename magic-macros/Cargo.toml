@@ -8,3 +8,9 @@ edition = "2018"
 serde = {version = "*", features = ["derive"]}
 serde_json = "*"
 ux = "*"
+syn = "*"
+quote = "*"
+proc-macro2 = "*"
+
+[lib]
+proc-macro = true
