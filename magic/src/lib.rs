@@ -18,7 +18,7 @@ pub struct Memory {
 
 pub trait MemoryBus {
     fn new(pifrom_src: &mut impl std::io::Read) -> Self;
-    fn fetch(&mut self, addr: u32) -> [u8; 8];
+    //fn fetch(&mut self, addr: u32) -> [u8; 8];
 }
 
 impl MemoryBus for Memory {
@@ -28,10 +28,6 @@ impl MemoryBus for Memory {
             panic!("Couldn't read pifrom: {}", why.description());
         }
         result
-    }
-    
-    fn fetch_32b(&mut self, addr: u32) -> u32 {
-        
     }
 }
 
@@ -80,6 +76,7 @@ impl InstructionCache for ICache {
 
 enum CpuCommand {
     InstructionFetch,
+    WaitMem(u8),
 }
 
 pub struct InterpCPU32bit<MB, IC, MM> 
@@ -115,14 +112,14 @@ where MM::AddressSize : From<u32>
         }
     }
     
-    fn instruction_fetch(&mut self, _: CpuCommand) {
+    /*fn instruction_fetch(&mut self, _: CpuCommand) {
         if !self.mmu.is_cached(self.pc) {
             self.bus.fetch(self.pc);
-            self.cmd_queue[MEM_WORD_DELAY] = CpuCommand::
+            self.cmd_queue.push_back(CpuCommand::WaitMem(MEM_WORD_DELAY));
         }
-    }
+    }*/
     
-    fn run(self) {
+    fn run(mut self) {
         loop {
             while let Some(cmd) = self.cmd_queue.pop_front() {
                 match cmd {
