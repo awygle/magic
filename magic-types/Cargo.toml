@@ -1,0 +1,12 @@
+[package]
+name = "magic-types"
+version = "0.1.0"
+authors = ["awygle <awygle@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+ux = "*"
+serde = {version = "*", features = ["derive"]}
+
+[dev-dependencies]
+serde_json = "*"
