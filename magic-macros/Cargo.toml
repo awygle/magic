@@ -11,6 +11,7 @@ ux = "*"
 syn = "*"
 quote = "*"
 proc-macro2 = "*"
+magic-types = {path = "../magic-types/"}
 
 [lib]
 proc-macro = true
