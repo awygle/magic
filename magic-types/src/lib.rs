@@ -191,9 +191,13 @@ pub struct MetaInstruction {
     pub branch: bool,
     pub exceptions: Vec<Exception>,
     pub extend: Extend,
-    pub rt: Option<RegNum>,
+            #[serde(alias = "fmt")]
     pub rs: Option<RegNum>,
+            #[serde(alias = "ft")]
+    pub rt: Option<RegNum>,
+            #[serde(alias = "fs")]
     pub rd: Option<RegNum>,
+            #[serde(alias = "fd")]
     pub sa: Option<RegNum>,
     pub funct: Option<Opcode>,
 }
