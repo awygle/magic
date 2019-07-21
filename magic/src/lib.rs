@@ -3,6 +3,7 @@ use gumdrop::Options;
 use std::collections::VecDeque;
 use std::error::Error;
 use ux::{u14, u20};
+pub mod decoder;
 
 #[derive(Debug, Options)]
 pub struct EmuOptions {
