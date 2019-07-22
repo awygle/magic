@@ -12,6 +12,8 @@ syn = "*"
 quote = "*"
 proc-macro2 = "*"
 magic-types = {path = "../magic-types/"}
+strum = "*"
+strum_macros = "*"
 
 [lib]
 proc-macro = true

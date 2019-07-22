@@ -2,6 +2,7 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use ux::{u5, u6};
+use itertools::Itertools;
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum InstructionType {
@@ -219,6 +220,97 @@ impl Default for MetaInstruction {
             sa: None,
             funct: None,
         }
+    }
+}
+
+impl MetaInstruction {
+    pub fn legal_encodings(&self) -> Box<dyn Iterator<Item = u32>> {
+        let opcode: u32 = u32::from(self.opcode.0) << 26;
+        let mut local_results: Box<dyn Iterator<Item = u32>> = Box::new(opcode..=opcode);
+        match self.itype {
+            InstructionType::R => {
+                local_results = Box::new(
+                    local_results
+                        .cartesian_product(
+                            if let Some(funct) = self.funct.map(|x| u32::from(x.0)) {
+                                (funct..=funct)
+                            } else {
+                                (0..=u6::max_value().into())
+                            },
+                        )
+                        .map(|(x, y)| x | y),
+                );
+                local_results = Box::new(
+                    local_results
+                        .cartesian_product(if let Some(sa) = self.sa.map(|x| u32::from(x.0)) {
+                            (sa..=sa)
+                        } else {
+                            (0..=u5::max_value().into())
+                        })
+                        .map(|(x, y)| x | (y << 6)),
+                );
+                local_results = Box::new(
+                    local_results
+                        .cartesian_product(if let Some(rd) = self.rd.map(|x| u32::from(x.0)) {
+                            (rd..=rd)
+                        } else {
+                            (0..=u5::max_value().into())
+                        })
+                        .map(|(x, y)| x | (y << 11)),
+                );
+                local_results = Box::new(
+                    local_results
+                        .cartesian_product(if let Some(rt) = self.rt.map(|x| u32::from(x.0)) {
+                            (rt..=rt)
+                        } else {
+                            (0..=u5::max_value().into())
+                        })
+                        .map(|(x, y)| x | (y << 16)),
+                );
+                local_results = Box::new(
+                    local_results
+                        .cartesian_product(if let Some(rs) = self.rs.map(|x| u32::from(x.0)) {
+                            (rs..=rs)
+                        } else {
+                            (0..=u5::max_value().into())
+                        })
+                        .map(|(x, y)| x | (y << 21)),
+                );
+            }
+            InstructionType::I => {
+                local_results = Box::new(
+                    local_results
+                        .cartesian_product(0..=u16::max_value().into())
+                        .map(|(x, y)| x | y),
+                );
+                local_results = Box::new(
+                    local_results
+                        .cartesian_product(if let Some(rt) = self.rt.map(|x| u32::from(x.0)) {
+                            (rt..=rt)
+                        } else {
+                            (0..=u5::max_value().into())
+                        })
+                        .map(|(x, y)| x | (y << 16)),
+                );
+                local_results = Box::new(
+                    local_results
+                        .cartesian_product(if let Some(rs) = self.rs.map(|x| u32::from(x.0)) {
+                            (rs..=rs)
+                        } else {
+                            (0..=u5::max_value().into())
+                        })
+                        .map(|(x, y)| x | (y << 21)),
+                );
+            }
+            InstructionType::J => {
+                local_results = Box::new(
+                    local_results
+                        .cartesian_product(0..=0x03FF_FFFF)
+                        .map(|(x, y)| x | y),
+                );
+            }
+        }
+        local_results.into_iter()
     }
 }
 

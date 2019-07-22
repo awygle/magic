@@ -12,3 +12,6 @@ arraydeque = "*"
 magic-macros = {path = "../magic-macros"}
 magic-types = {path = "../magic-types"}
 serde_json = "*"
+enum_derive = "*"
+strum = "*"
+strum_macros = "*"

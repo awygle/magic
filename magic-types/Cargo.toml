@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 ux = "*"
 serde = {version = "*", features = ["derive"]}
+itertools = "*"
 
 [dev-dependencies]
 serde_json = "*"

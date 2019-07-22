@@ -14,99 +14,35 @@ mod tests {
         let mut results: Vec<Box<dyn Iterator<Item = u32>>> = Vec::new();
         let mut i = 0;
         for instr in instrs {
-            let opcode: u32 = u32::from(instr.opcode.0) << 26;
-            let mut local_results: Box<dyn Iterator<Item = u32>> = Box::new(opcode..=opcode);
-            match instr.itype {
-                InstructionType::R => {
-                    local_results = Box::new(
-                        local_results
-                            .cartesian_product(
-                                if let Some(funct) = instr.funct.map(|x| u32::from(x.0)) {
-                                    (funct..=funct)
-                                } else {
-                                    (0..=u6::max_value().into())
-                                },
-                            )
-                            .map(|(x, y)| x | y),
-                    );
-                    local_results = Box::new(
-                        local_results
-                            .cartesian_product(if let Some(sa) = instr.sa.map(|x| u32::from(x.0)) {
-                                (sa..=sa)
-                            } else {
-                                (0..=u5::max_value().into())
-                            })
-                            .map(|(x, y)| x | (y << 6)),
-                    );
-                    local_results = Box::new(
-                        local_results
-                            .cartesian_product(if let Some(rd) = instr.rd.map(|x| u32::from(x.0)) {
-                                (rd..=rd)
-                            } else {
-                                (0..=u5::max_value().into())
-                            })
-                            .map(|(x, y)| x | (y << 11)),
-                    );
-                    local_results = Box::new(
-                        local_results
-                            .cartesian_product(if let Some(rt) = instr.rt.map(|x| u32::from(x.0)) {
-                                (rt..=rt)
-                            } else {
-                                (0..=u5::max_value().into())
-                            })
-                            .map(|(x, y)| x | (y << 16)),
-                    );
-                    local_results = Box::new(
-                        local_results
-                            .cartesian_product(if let Some(rs) = instr.rs.map(|x| u32::from(x.0)) {
-                                (rs..=rs)
-                            } else {
-                                (0..=u5::max_value().into())
-                            })
-                            .map(|(x, y)| x | (y << 21)),
-                    );
-                }
-                InstructionType::I => {
-                    local_results = Box::new(
-                        local_results
-                            .cartesian_product(0..=u16::max_value().into())
-                            .map(|(x, y)| x | y),
-                    );
-                    local_results = Box::new(
-                        local_results
-                            .cartesian_product(if let Some(rt) = instr.rt.map(|x| u32::from(x.0)) {
-                                (rt..=rt)
-                            } else {
-                                (0..=u5::max_value().into())
-                            })
-                            .map(|(x, y)| x | (y << 16)),
-                    );
-                    local_results = Box::new(
-                        local_results
-                            .cartesian_product(if let Some(rs) = instr.rs.map(|x| u32::from(x.0)) {
-                                (rs..=rs)
-                            } else {
-                                (0..=u5::max_value().into())
-                            })
-                            .map(|(x, y)| x | (y << 21)),
-                    );
-                }
-                InstructionType::J => {
-                    local_results = Box::new(
-                        local_results
-                            .cartesian_product(0..=0x03FF_FFFF)
-                            .map(|(x, y)| x | y),
-                    );
-                }
-            }
-            results.push(local_results);
+            results.push(instr.legal_encodings());
             i = i + 1;
         }
 
         results.into_iter().flatten()
     }
+    
+    use magic::decoder::{decode_vr4300, CpuInstrVR4300};
+    
+    #[test]
+    fn test_scalar_decoder() {
+        let mut f = File::open("../magic-macros/mipsiii.json").unwrap();
+        let mut src = String::new();
+        f.read_to_string(&mut src).unwrap();
+        let metainstrs: Vec<MetaInstruction> = serde_json::from_str(&src).unwrap();
+        for metainstr in metainstrs {
+            let expected_op :CpuInstrVR4300 = str::parse(&metainstr.name.replace(".", "_")).expect(&format!("Couldn't find variant {:?}", metainstr.name));
+            for encoding in metainstr.legal_encodings() {
+                let decoded_op = decode_vr4300(encoding);
+                if decoded_op != expected_op {
+                    println!("meta-instr {:#X?}, encoding {:#X}, expected {:?}, got {:?}", metainstr, encoding, expected_op, decoded_op);
+                }
+                assert_eq!(decoded_op, expected_op);
+            }
+        }
+    }
 
     #[test]
+    #[ignore]
     fn test_instruction_iterator() {
         let mut set: Vec<u8> = Vec::with_capacity(0x2000_0000);
         set.resize(0x2000_0000, 0);
