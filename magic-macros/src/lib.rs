@@ -25,8 +25,9 @@ pub fn vr4300_instr_enum(code: TokenStream) -> TokenStream {
         .into_iter()
         .map(|x| syn::Ident::new(&x.name.replace(".", "_"), proc_macro2::Span::call_site()));
     let result = quote! {
-        #[derive(Debug, Copy, Clone)]
-        enum #enum_name {
+        use strum_macros::EnumString;
+        #[derive(Debug, Copy, Clone, PartialEq, EnumString)]
+        pub enum #enum_name {
             Invalid,
         #(
             #names

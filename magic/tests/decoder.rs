@@ -20,8 +20,29 @@ mod tests {
 
         results.into_iter().flatten()
     }
+    
+    use magic::decoder::{decode_vr4300, CpuInstrVR4300};
+    
+    #[test]
+    fn test_scalar_decoder() {
+        let mut f = File::open("../magic-macros/mipsiii.json").unwrap();
+        let mut src = String::new();
+        f.read_to_string(&mut src).unwrap();
+        let metainstrs: Vec<MetaInstruction> = serde_json::from_str(&src).unwrap();
+        for metainstr in metainstrs {
+            let expected_op :CpuInstrVR4300 = str::parse(&metainstr.name.replace(".", "_")).expect(&format!("Couldn't find variant {:?}", metainstr.name));
+            for encoding in metainstr.legal_encodings() {
+                let decoded_op = decode_vr4300(encoding);
+                if decoded_op != expected_op {
+                    println!("meta-instr {:#X?}, encoding {:#X}, expected {:?}, got {:?}", metainstr, encoding, expected_op, decoded_op);
+                }
+                assert_eq!(decoded_op, expected_op);
+            }
+        }
+    }
 
     #[test]
+    #[ignore]
     fn test_instruction_iterator() {
         let mut set: Vec<u8> = Vec::with_capacity(0x2000_0000);
         set.resize(0x2000_0000, 0);

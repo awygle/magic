@@ -116,7 +116,7 @@ const DECODER_LOOKUP_TABLE :[CpuInstrVR4300; 312] = [
 //  Escaped opcode table: COP0/3.
 //
 //      31--------26-25--24------21------16-----------------------------0
-//      |   COP0/6  | 11 |        | FMT/5 |                             |
+//      |   COP0/6  | 01 |        | FMT/5 |                             |
 //      ------6-------2-------3-------5---------------------------------0
 //      |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--|
 //   00 |  BCF  |  BCT  |  BCFL |  BCTL |  ---  |  --- |  ---  |  ---  |
@@ -337,14 +337,14 @@ const OPCODE_ESCAPE_TABLE: [OpcodeEscape; 256] = [
     OpcodeEscape {mask: OPCODE_MASK, shift: OPCODE_SHIFT, offset: DEFAULT_OFFSET},
     
     OpcodeEscape {mask: RS_MASK_SHORT, shift: RS_SHIFT, offset: COP0_0_OFFSET}, // COP0_0
-    OpcodeEscape {mask: RS_MASK_SHORT, shift: RS_SHIFT, offset: COP0_0_OFFSET}, // COP0_0
-    OpcodeEscape {mask: FUNC_MASK, shift: FUNC_SHIFT, offset: COP0_2_OFFSET}, // COP0_2
     OpcodeEscape {mask: RT_MASK_SHORT, shift: RT_SHIFT, offset: COP0_3_OFFSET}, // COP0_3
+    OpcodeEscape {mask: FUNC_MASK, shift: FUNC_SHIFT, offset: COP0_2_OFFSET}, // COP0_2
+    OpcodeEscape {mask: OPCODE_MASK, shift: OPCODE_SHIFT, offset: INVALID_OFFSET}, // INVALID
     
     OpcodeEscape {mask: RS_MASK_SHORT, shift: RS_SHIFT, offset: COP1_0_OFFSET}, // COP1_0
-    OpcodeEscape {mask: RS_MASK_SHORT, shift: RS_SHIFT, offset: COP1_0_OFFSET}, // COP1_0
-    OpcodeEscape {mask: FUNC_MASK, shift: FUNC_SHIFT, offset: COP1_2_OFFSET}, // COP1_2
     OpcodeEscape {mask: RT_MASK_SHORT, shift: RT_SHIFT, offset: COP1_3_OFFSET}, // COP1_3
+    OpcodeEscape {mask: FUNC_MASK, shift: FUNC_SHIFT, offset: COP1_2_OFFSET}, // COP1_2
+    OpcodeEscape {mask: OPCODE_MASK, shift: OPCODE_SHIFT, offset: INVALID_OFFSET}, // INVALID
     
     OpcodeEscape {mask: OPCODE_MASK, shift: OPCODE_SHIFT, offset: INVALID_OFFSET}, // INVALID
     OpcodeEscape {mask: OPCODE_MASK, shift: OPCODE_SHIFT, offset: INVALID_OFFSET},
@@ -587,9 +587,456 @@ const OPCODE_ESCAPE_TABLE: [OpcodeEscape; 256] = [
 //}
 
 // Scalar decoder
-fn decode_vr4300(iw: u32) -> CpuInstrVR4300 {
+pub fn decode_vr4300(iw: u32) -> CpuInstrVR4300 {
     let escape = OPCODE_ESCAPE_TABLE[(iw as usize) >> 24];
     let index = (iw >> escape.shift) & (escape.mask as u32);
     
-    DECODER_LOOKUP_TABLE[(escape.offset as usize) + (index as usize)]
+    let result = DECODER_LOOKUP_TABLE[(escape.offset as usize) + (index as usize)];
+    match result {
+        ADD_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    ADD_S
+                },
+                17 => {
+                    ADD_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        SUB_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    SUB_S
+                },
+                17 => {
+                    SUB_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        MUL_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    MUL_S
+                },
+                17 => {
+                    MUL_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        DIV_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    DIV_S
+                },
+                17 => {
+                    DIV_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        SQRT_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    SQRT_S
+                },
+                17 => {
+                    SQRT_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        ABS_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    ABS_S
+                },
+                17 => {
+                    ABS_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        MOV_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    MOV_S
+                },
+                17 => {
+                    MOV_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        NEG_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    NEG_S
+                },
+                17 => {
+                    NEG_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        ROUND_L_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    ROUND_L_S
+                },
+                17 => {
+                    ROUND_L_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        TRUNC_L_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    TRUNC_L_S
+                },
+                17 => {
+                    TRUNC_L_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        CEIL_L_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    CEIL_L_S
+                },
+                17 => {
+                    CEIL_L_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        FLOOR_L_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    FLOOR_L_S
+                },
+                17 => {
+                    FLOOR_L_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        ROUND_W_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    ROUND_W_S
+                },
+                17 => {
+                    ROUND_W_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        TRUNC_W_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    TRUNC_W_S
+                },
+                17 => {
+                    TRUNC_W_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        CEIL_W_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    CEIL_W_S
+                },
+                17 => {
+                    CEIL_W_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        FLOOR_W_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    FLOOR_W_S
+                },
+                17 => {
+                    FLOOR_W_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        CVT_S_D => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                17 => {
+                    CVT_S_D
+                },
+                20 => {
+                    CVT_S_W
+                },
+                21 => {
+                    CVT_S_L
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        CVT_D_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    CVT_D_S
+                },
+                20 => {
+                    CVT_D_W
+                },
+                21 => {
+                    CVT_D_L
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        CVT_W_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    CVT_W_S
+                },
+                17 => {
+                    CVT_W_D
+                },
+                21 => {
+                    CVT_W_L
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        CVT_L_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    CVT_L_S
+                },
+                17 => {
+                    CVT_L_D
+                },
+                20 => {
+                    CVT_L_W
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_F_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_F_S
+                },
+                17 => {
+                    C_F_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_UN_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_UN_S
+                },
+                17 => {
+                    C_UN_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_EQ_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_EQ_S
+                },
+                17 => {
+                    C_EQ_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_UEQ_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_UEQ_S
+                },
+                17 => {
+                    C_UEQ_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_OLT_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_OLT_S
+                },
+                17 => {
+                    C_OLT_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_ULT_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_ULT_S
+                },
+                17 => {
+                    C_ULT_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_OLE_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_OLE_S
+                },
+                17 => {
+                    C_OLE_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_ULE_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_ULE_S
+                },
+                17 => {
+                    C_ULE_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_SF_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_SF_S
+                },
+                17 => {
+                    C_SF_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_NGLE_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_NGLE_S
+                },
+                17 => {
+                    C_NGLE_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_SEQ_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_SEQ_S
+                },
+                17 => {
+                    C_SEQ_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_NGL_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_NGL_S
+                },
+                17 => {
+                    C_NGL_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_LT_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_LT_S
+                },
+                17 => {
+                    C_LT_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_NGE_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_NGE_S
+                },
+                17 => {
+                    C_NGE_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_LE_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_LE_S
+                },
+                17 => {
+                    C_LE_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        C_NGT_S => {
+            let rs = (iw >> 21) & 0x1F;
+            match rs {
+                16 => {
+                    C_NGT_S
+                },
+                17 => {
+                    C_NGT_D
+                },
+                _ => panic!("invalid floating point format")
+            }
+        },
+        _ => result
+    }
 }
