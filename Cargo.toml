@@ -1,0 +1,24 @@
+[package]
+name = "magic"
+version = "0.1.0"
+authors = ["awygle <awygle@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+byteorder = "*"
+imgui = "0.2.0"
+imgui-wgpu = { path = "../../imgui-wgpu-rs/" }
+winit = "0.20.0-alpha4"
+winit_input_helper = "0.4.0-alpha4"
+randomize = "3.0"
+getrandom = "0.1"
+image = "0.22"
+wgpu = "0.4"
+either = "*"
+
+[dependencies.imgui-winit-support]
+version = "0.2.0"
+default-features = false
+features = ["winit-20"]
