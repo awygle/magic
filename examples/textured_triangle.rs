@@ -148,6 +148,14 @@ fn main() {
     texture_bytes.resize_with(num_bytes, || 0);
     texfile.read(&mut texture_bytes).expect("not enough commands");
     assert!(texture_bytes.len() == num_bytes);
+    
+    // build RDP struct
+    let mut rdp = magic::RDP { 
+        texture: magic::ImageReference::default(),
+        tiles: [magic::Tile::default(); 8],
+        texmem: [0; 4096],
+        active_tile: 0,
+    };
 
     // Event loop
     event_loop.run(move |event, _, control_flow| {
@@ -205,21 +213,21 @@ fn main() {
                 // draw triangles
                 let mut command_slice = &command_bytes[..];
                 let mut color = 0;
-                let mut texture = magic::ImageReference::default();
                 loop {
                     let command_option: std::io::Result<magic::RDPCommand> = command_slice.read_command();
                     if let Ok(command) = command_option {
                         match command { 
                             magic::RDPCommand::FillTriangle(coefficients) =>  {
-                                magic::draw_fill_tri(&mut fb_bytes, coefficients, color);
+                                rdp.draw_fill_tri(&mut fb_bytes, coefficients, color);
                             },
                             magic::RDPCommand::FillRectangle(rectangle) => {
-                                magic::draw_fill_rect(&mut fb_bytes, rectangle, color);
+                                rdp.draw_fill_rect(&mut fb_bytes, rectangle, color);
                             },
                             magic::RDPCommand::TextureTriangle(coefficients, textures) =>  {
                                 if !seen {
                                     println!("Drawing a textured triangle with these coefficients: {:#X?}\n{:#X?}", coefficients, textures);
-                                    magic::draw_textured_tri(&mut fb_bytes, coefficients, textures, texture, &texture_bytes);
+                                    rdp.draw_textured_tri(&mut fb_bytes, coefficients, textures);
+                                    //seen = true;
                                 }
                             },
                             magic::RDPCommand::SetFillColor(colors) => {
@@ -227,8 +235,49 @@ fn main() {
                                 color = colors.color1;
                             },
                             magic::RDPCommand::SetTextureImage(imageref) => {
-                                texture = imageref;
+                                rdp.texture = imageref;
                             },
+                            magic::RDPCommand::SetTile(tile) => {
+                                println!("Setting active tile to {}", tile.tile);
+                                rdp.active_tile = tile.tile;
+                                rdp.tiles[rdp.active_tile as usize] = tile
+                            },
+                            magic::RDPCommand::LoadTile { tile, sl, sh, tl, th } => {
+                                // active tile tells us tmem base address in 64bit units
+                                let base_addr :usize = rdp.tiles[tile as usize].tmem_addr as usize / 8;
+                                let linewidth :usize = rdp.tiles[tile as usize].line_width as usize * 8;
+                                // TODO handle the way pixel formats mess up line width
+                                // calculations better
+                                let linewidth = linewidth / 2;
+                                let sl_usize = (sl >> 2) as usize;
+                                let sh_usize = (sh >> 2) as usize;
+                                let tl_usize = (tl >> 2) as usize;
+                                let th_usize = (th >> 2) as usize;
+                                
+                                for y in tl_usize..=th_usize {
+                                    for x in sl_usize..=sh_usize {
+                                        let offset = (x + (y * linewidth)) * 4;
+                                        let src_offset = (x + (y * ((rdp.texture.width as usize) + 1))) * 4;
+                                        //println!("Copying from {}, {} (address {:#X})", x, y, (rdp.texture.addr as usize) + src_offset);
+                                        //println!("Copying to {}, {} (address {:#X})", x, y, base_addr + offset);
+                                        for i in 0..4 {
+                                            rdp.texmem[base_addr + offset + i] = 
+                                                texture_bytes[(rdp.texture.addr as usize) + src_offset + i];
+                                        }
+                                    }
+                                }
+                                //panic!();
+                                
+                                //println!("Texmem now contains:");
+                                //for x in sl_usize..=sh_usize {
+                                //    for y in tl_usize..=th_usize {
+                                //        let offset = x + (y * linewidth);
+                                //        for i in 0..4 {
+                                //        println!("{:#04X}", rdp.texmem[base_addr + offset + i]);
+                                //        }
+                                //    }
+                                //}
+                            }
                             magic::RDPCommand::Nop => {},
                             _ => {
                                 println!("Unknown command: {:?}", command);

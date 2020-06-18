@@ -1,20 +1,48 @@
 use byteorder::{ReadBytesExt, BigEndian};
 use std::io;
-use either::Either;
 
-fn add_fp_colors(x :u32, y :u32) -> u32 {
-    let working_x = x;
-    let working_y = y;
-    //let mut working_x = x & 0x7FFFFFFF;
-    //let mut working_y = x & 0x7FFFFFFF;
-    //if (x < 0) {
-    //    working_x = -working_x;
-    //}
-    //if (y < 0) {
-    //    working_y = -working_y;
-    //}
+#[derive(Debug)]
+pub struct Coefficient {
+    whole: u16,
+    frac: u16,
+    dx_whole: u16,
+    dy_whole: u16,
+    de_whole: u16,
+    dx_frac: u16,
+    dy_frac: u16,
+    de_frac: u16,
+}
+
+impl Coefficient {
+    fn from_whole_frac(whole: u16, frac: u16) -> i32 {
+        ((whole as u32) << 16 | frac as u32) as i32
+    }
     
-    return working_x.wrapping_add(working_y);
+    fn to_whole_frac(val: i32) -> (u16, u16) {
+        ( ((val as u32) >> 16) as u16, (val as u32) as u16 )
+    }
+    
+    pub fn val(&self) -> i32 {
+        Self::from_whole_frac(self.whole, self.frac)
+    }
+    
+    pub fn dx(&self) -> i32 {
+        Self::from_whole_frac(self.dx_whole, self.dx_frac)
+    }
+    
+    pub fn dy(&self) -> i32 {
+        Self::from_whole_frac(self.dy_whole, self.dy_frac)
+    }
+    
+    pub fn de(&self) -> i32 {
+        Self::from_whole_frac(self.de_whole, self.de_frac)
+    }
+    
+    pub fn set_dx(&mut self, val: i32) {
+        let (whole, frac) = Self::to_whole_frac(val);
+        self.dx_whole = whole;
+        self.dx_frac = frac;
+    }
 }
 
 // TODO don't make everything pub, write a constructor
@@ -243,6 +271,40 @@ impl TextureCoefficients {
         whole2frac(self.dw_de, self.dw_de_frac)
     }
     
+    
+    pub fn to_vec(&self) -> Vec<Coefficient> {
+        let s = Coefficient {
+            whole: self.s,
+            frac: self.s_frac,
+            dx_whole: self.ds_dx,
+            de_whole: self.ds_de,
+            dy_whole: self.ds_dy,
+            dx_frac: self.ds_dx_frac,
+            de_frac: self.ds_de_frac,
+            dy_frac: self.ds_dy_frac,
+        };
+        let t = Coefficient {
+            whole: self.t,
+            frac: self.t_frac,
+            dx_whole: self.dt_dx,
+            de_whole: self.dt_de,
+            dy_whole: self.dt_dy,
+            dx_frac: self.dt_dx_frac,
+            de_frac: self.dt_de_frac,
+            dy_frac: self.dt_dy_frac,
+        };
+        let w = Coefficient {
+            whole: self.w,
+            frac: self.w_frac,
+            dx_whole: self.dw_dx,
+            de_whole: self.dw_de,
+            dy_whole: self.dw_dy,
+            dx_frac: self.dw_dx_frac,
+            de_frac: self.dw_de_frac,
+            dy_frac: self.dw_dy_frac,
+        };
+        vec![s, t, w]
+    }
 }
 
 impl ShadeCoefficients {
@@ -308,6 +370,50 @@ impl ShadeCoefficients {
     
     pub fn da_de(&self) -> i32 {
         ((self.da_de as u32) << 16 | (self.da_de_frac as u32)) as i32
+    }
+    
+    pub fn to_vec(&self) -> Vec<Coefficient> {
+        let red = Coefficient {
+            whole: self.red,
+            frac: self.red_frac,
+            dx_whole: self.dr_dx,
+            de_whole: self.dr_de,
+            dy_whole: self.dr_dy,
+            dx_frac: self.dr_dx_frac,
+            de_frac: self.dr_de_frac,
+            dy_frac: self.dr_dy_frac,
+        };
+        let green = Coefficient {
+            whole: self.green,
+            frac: self.green_frac,
+            dx_whole: self.dg_dx,
+            de_whole: self.dg_de,
+            dy_whole: self.dg_dy,
+            dx_frac: self.dg_dx_frac,
+            de_frac: self.dg_de_frac,
+            dy_frac: self.dg_dy_frac,
+        };
+        let blue = Coefficient {
+            whole: self.blue,
+            frac: self.blue_frac,
+            dx_whole: self.db_dx,
+            de_whole: self.db_de,
+            dy_whole: self.db_dy,
+            dx_frac: self.db_dx_frac,
+            de_frac: self.db_de_frac,
+            dy_frac: self.db_dy_frac,
+        };
+        let alpha = Coefficient {
+            whole: self.alpha,
+            frac: self.alpha_frac,
+            dx_whole: self.da_dx,
+            de_whole: self.da_de,
+            dy_whole: self.da_dy,
+            dx_frac: self.da_dx_frac,
+            de_frac: self.da_de_frac,
+            dy_frac: self.da_dy_frac,
+        };
+        vec![red, green, blue, alpha]
     }
 }
 
@@ -409,6 +515,16 @@ pub struct CombineMode {
     add_a_1: u8,
 }
 
+#[derive(Debug, Default, Copy, Clone)]
+pub struct Tile {
+    pub format: TextureFormat,
+    pub size: TextureSize,
+    pub line_width: u16,
+    pub tmem_addr: u16,
+    pub tile: u8,
+    // TODO add the rest
+}
+
 #[derive(Debug)]
 pub enum RDPCommand {
     FillTriangle(EdgeCoefficients),
@@ -418,6 +534,8 @@ pub enum RDPCommand {
     SetFillColor(FillColor),
     SetCombineMode(CombineMode),
     SetTextureImage(ImageReference),
+    SetTile(Tile),
+    LoadTile {tile: u8, sl: u16, sh: u16, tl: u16, th: u16},
     Nop,
 }
 
@@ -473,19 +591,18 @@ pub trait ReadRdpCommands: io::Read where Self: std::marker::Sized {
             },
             0x3d => {
                 // Set texture image
-                println!("Set texture image command: {:#018X}", value);
                 let format = ((value >> 53) & 0x7) as u8;
                 let size = ((value >> 51) & 0x3) as u8;
-                println!("Size is {}", size);
-                let format = ((value >> 53) & 0x7) as u8;
                 let width = ((value >> 32) & 0x3FF) as u16;
                 let addr = (value & 0x03FFFFFF) as u32;
-                Ok(RDPCommand::SetTextureImage(ImageReference {
+                let result = RDPCommand::SetTextureImage(ImageReference {
                     format: TextureFormat::from_u8(format),
                     size: TextureSize::from_u8(size),
                     width,
                     addr,
-                }))
+                });
+                println!("Set texture image command: {:#X?}", result);
+                return Ok(result);
             },
             0x36 => {
                 let xl = ((value >> 44) & 0x0FFF) as u16;
@@ -664,53 +781,38 @@ pub trait ReadRdpCommands: io::Read where Self: std::marker::Sized {
                 
                 Ok(RDPCommand::TextureTriangle(edge_coefficients, texture_coefficients))
             },
+            0x35 => {
+                let format = ((value >> 53) & 0x7) as u8;
+                let size = ((value >> 51) & 0x3) as u8;
+                let line_width = ((value >> 41) & 0x1FF) as u16;
+                let tmem_addr = ((value >> 32) & 0x1FF) as u16;
+                let tile = ((value >> 24) & 0x03) as u8;
+                
+                Ok(RDPCommand::SetTile(Tile {
+                    format: TextureFormat::from_u8(format),
+                    size: TextureSize::from_u8(size),
+                    line_width,
+                    tmem_addr,
+                    tile,
+                }))
+            },
+            0x34 => {
+                let sl = ((value >> 44) & 0x3FF) as u16;
+                let tl = ((value >> 32) & 0x3FF) as u16;
+                let sh = ((value >> 12) & 0x3FF) as u16;
+                let th = ((value >> 0 ) & 0x3FF) as u16;
+                let tile = ((value >> 24) & 0x03) as u8;
+                
+                Ok(RDPCommand::LoadTile {
+                    tile,
+                    sl,
+                    sh,
+                    tl,
+                    th
+                })
+            },
             _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid opcode")),
         }
-    }
-}
-
-impl<R: io::Read + ?Sized> ReadRdpCommands for R where R: std::marker::Sized {}
-
-fn fill_between_pixels(fb: &mut [u8], x_start: usize, x_stop: usize, scanline: usize, color: [u8;4]) {
-    for x in x_start..=x_stop {
-        let index = ((scanline as usize) * 320 + (x as usize)) * 4;
-        for i in 0..4 {
-            fb[index+i] = color[i];
-        }
-    }
-}
-
-pub fn draw_fill_tri(fb: &mut [u8], coefficients: EdgeCoefficients, color: u32) {
-    // clip YH to previous multiple of 4 - this is where XM and XH are defined
-    let yh_whole_pixel = (coefficients.yh() / 4) * 4;
-    // Walk down edges using slopes
-    // (YH_whole, XH)
-    let mut scanline = yh_whole_pixel / 4;
-    let mut hx = coefficients.xh();
-    let mut mx = coefficients.xm();
-    
-    while scanline < coefficients.ym() / 4 {
-        let hx_pix = hx >> 16;
-        let mx_pix = mx >> 16;
-        let left = if coefficients.right_major { hx_pix } else { mx_pix };
-        let right = if !coefficients.right_major { hx_pix } else { mx_pix };
-        fill_between_pixels(fb, left as usize, right as usize, scanline as usize, color.to_be_bytes());
-        hx += coefficients.dx_h_dy();
-        mx += coefficients.dx_m_dy();
-        scanline += 1;
-    }
-    
-    let mut lx = coefficients.xl();
-    
-    while scanline < coefficients.yl() / 4 {
-        let hx_pix = hx >> 16;
-        let lx_pix = lx >> 16;
-        let left = if coefficients.right_major { hx_pix } else { lx_pix };
-        let right = if !coefficients.right_major { hx_pix } else { lx_pix };
-        fill_between_pixels(fb, left as usize, right as usize, scanline as usize, color.to_be_bytes());
-        hx = hx.wrapping_add(coefficients.dx_h_dy());
-        lx = lx.wrapping_add(coefficients.dx_l_dy());
-        scanline += 1;
     }
 }
 
@@ -722,277 +824,216 @@ fn i32_to_u8_color(color: i32) -> u8 {
     }
 }
 
-fn to_rgba(red: i32, green: i32, blue: i32, alpha: i32) -> u32 {
+fn to_rgba(red: i32, green: i32, blue: i32, _alpha: i32) -> u32 {
     let result = ((i32_to_u8_color(red) as u32) << 24) | ((i32_to_u8_color(green) as u32) << 16) | ((i32_to_u8_color(blue) as u32) << 8) | 0xFF as u32;
     result
 }
 
-pub fn draw_textured_tri(fb: &mut [u8], edge_coefficients: EdgeCoefficients, texture_coefficients: TextureCoefficients, texture: ImageReference, memory: &[u8]) {
-    // clip YH to previous multiple of 4 - this is where XM and XH are defined
-    let yh_whole_pixel = (edge_coefficients.yh() / 4) * 4;
-    // Walk down edges using slopes
-    // (YH_whole, XH)
-    let mut scanline = yh_whole_pixel / 4;
-    let mut hx = edge_coefficients.xh();
-    let mut mx = edge_coefficients.xm();
-    
-    let ds_dx = if edge_coefficients.right_major { 
-        texture_coefficients.ds_dx() 
-    } else {
-        -texture_coefficients.ds_dx()
-    };
-    let dt_dx = if edge_coefficients.right_major { 
-        texture_coefficients.dt_dx() 
-    } else {
-        -texture_coefficients.dt_dx()
-    };
-    let dw_dx = if edge_coefficients.right_major { 
-        texture_coefficients.dw_dx() 
-    } else {
-        -texture_coefficients.dw_dx()
-    };
-    
-    // starting values
-    let mut s = texture_coefficients.s();
-    let mut t = texture_coefficients.t();
-    let mut w = texture_coefficients.w();
-    
-    while scanline < edge_coefficients.ym() / 4 {
-        let hx_pix = hx >> 16;
-        let mx_pix = mx >> 16;
-        
-        // unnecessary muts due to iterator shenanigans
-        let mut forward = hx_pix..mx_pix;
-        let mut reverse = (mx_pix..hx_pix).rev();
-        
-        let line :&mut dyn Iterator<Item=_> = if edge_coefficients.right_major {
-            &mut forward
-        } else {
-            &mut reverse
-        };
-        
-        // edge stuff happens first, y stuff after?
-        s += texture_coefficients.ds_de();
-        t += texture_coefficients.dt_de();
-        w += texture_coefficients.dw_de();
-            
-        let mut line_s = s;
-        let mut line_t = t;
-        let mut line_w = w;
-        for x in line {
-            println!("Texture coordinates for pixel {},{} are {:#010X}, {:#010X}, {:#010X}",
-                     scanline, x, line_s, line_t, line_w);
-            // Get color from texture here
-            //let color = to_rgba(line_s, line_t, line_w, line_alpha);
-            //let index = ((scanline as usize) * 320 + (x as usize)) * 4;
-            //for i in 0..4 {
-            //    fb[index+i] = color[i];
-            //}
-            line_s += ds_dx;
-            line_t += dt_dx;
-            line_w += dw_dx;
-        }
-        scanline += 1;
-        
-        s += texture_coefficients.ds_dy();
-        t += texture_coefficients.dt_dy();
-        w += texture_coefficients.dw_dy();
-        
-        hx += edge_coefficients.dx_h_dy();
-        mx += edge_coefficients.dx_m_dy();
-    }
-    
-    let mut lx = edge_coefficients.xl();
-    
-    while scanline < edge_coefficients.yl() / 4 {
-        let hx_pix = hx >> 16;
-        let lx_pix = lx >> 16;
-        
-        // unnecessary muts due to iterator shenanigans
-        let mut forward = hx_pix..lx_pix;
-        let mut reverse = (lx_pix..hx_pix).rev();
-        
-        let line :&mut dyn Iterator<Item=_> = if edge_coefficients.right_major {
-            &mut forward
-        } else {
-            &mut reverse
-        };
-        
-        // edge stuff happens first, y stuff after?
-        s += texture_coefficients.ds_de();
-        t += texture_coefficients.dt_de();
-        w += texture_coefficients.dw_de();
-            
-        let mut line_s = s;
-        let mut line_t = t;
-        let mut line_w = w;
-        for x in line {
-            println!("Texture coordinates for pixel {},{} are {:#010X}, {:#010X}, {:#010X}",
-                     scanline, x, line_s, line_t, line_w);
-            // Get color from texture here
-            //let color = to_rgba(line_s, line_t, line_w, line_alpha);
-            //let color = color.to_be_bytes();
-            //let index = ((scanline as usize) * 320 + (x as usize)) * 4;
-            //for i in 0..4 {
-            //    fb[index+i] = color[i];
-            //}
-            line_s += ds_dx;
-            line_t += dt_dx;
-            line_w += dw_dx;
-        }
-        scanline += 1;
-        
-        s += texture_coefficients.ds_dy();
-        t += texture_coefficients.dt_dy();
-        w += texture_coefficients.dw_dy();
-        
-        hx += edge_coefficients.dx_h_dy();
-        lx += edge_coefficients.dx_l_dy();
-    }
+pub struct RDP {
+    pub texture: ImageReference,
+    pub tiles: [Tile; 8],
+    pub active_tile: u8,
+    pub texmem: [u8; 4096],
 }
 
-pub fn draw_shade_tri(fb: &mut [u8], edge_coefficients: EdgeCoefficients, shade_coefficients: ShadeCoefficients) {
-    // clip YH to previous multiple of 4 - this is where XM and XH are defined
-    let yh_whole_pixel = (edge_coefficients.yh() / 4) * 4;
-    // Walk down edges using slopes
-    // (YH_whole, XH)
-    let mut scanline = yh_whole_pixel / 4;
-    let mut hx = edge_coefficients.xh();
-    let mut mx = edge_coefficients.xm();
-    
-    let dr_dx = if edge_coefficients.right_major { 
-        shade_coefficients.dr_dx() 
-    } else {
-        -shade_coefficients.dr_dx()
-    };
-    let dg_dx = if edge_coefficients.right_major { 
-        shade_coefficients.dg_dx() 
-    } else {
-        -shade_coefficients.dg_dx()
-    };
-    let db_dx = if edge_coefficients.right_major { 
-        shade_coefficients.db_dx() 
-    } else {
-        -shade_coefficients.db_dx()
-    };
-    let da_dx = if edge_coefficients.right_major { 
-        shade_coefficients.da_dx() 
-    } else {
-        -shade_coefficients.da_dx()
-    };
-    
-    // starting values
-    let mut red = shade_coefficients.red();
-    let mut green = shade_coefficients.green();
-    let mut blue = shade_coefficients.blue();
-    let mut alpha = shade_coefficients.alpha();
-    
-    while scanline < edge_coefficients.ym() / 4 {
-        let hx_pix = hx >> 16;
-        let mx_pix = mx >> 16;
+impl<R: io::Read + ?Sized> ReadRdpCommands for R where R: std::marker::Sized {}
+
+impl RDP {
+    fn interpolate_over_triangle(&self, fb: &mut [u8], edge_coefficients: EdgeCoefficients, 
+                                  interp_coefficients: Vec<Coefficient>, op: impl Fn(&RDP, i32, i32, &mut [u8], &Vec<i32>)) {
+        // clip YH to previous multiple of 4 - this is where XM and XH are defined
+        let yh_whole_pixel = (edge_coefficients.yh() / 4) * 4;
+        // Walk down edges using slopes
+        // (YH_whole, XH)
+        let mut scanline = yh_whole_pixel / 4;
+        let mut hx = edge_coefficients.xh();
+        let mut mx = edge_coefficients.xm();
         
-        // unnecessary muts due to iterator shenanigans
-        let mut forward = hx_pix..mx_pix;
-        let mut reverse = (mx_pix..hx_pix).rev();
+        // dx values
+        let dx_vals: Vec<_> = interp_coefficients.iter()
+            .map(|c| if edge_coefficients.right_major { c.dx() } else { -c.dx() })
+            .collect();
         
-        let line :&mut dyn Iterator<Item=_> = if edge_coefficients.right_major {
-            &mut forward
-        } else {
-            &mut reverse
-        };
+        // starting values
+        let mut vals: Vec<_> = interp_coefficients.iter()
+            .map(|c| c.val())
+            .collect();
         
-        // edge stuff happens first, y stuff after?
-        red += shade_coefficients.dr_de();
-        green += shade_coefficients.dg_de();
-        blue += shade_coefficients.db_de();
-        alpha += shade_coefficients.da_de();
+        while scanline < edge_coefficients.ym() / 4 {
+            let hx_pix = hx >> 16;
+            let mx_pix = mx >> 16;
             
-        let mut line_red = red;
-        let mut line_green = green;
-        let mut line_blue = blue;
-        let mut line_alpha = alpha;
-        for x in line {
-            let color = to_rgba(line_red, line_green, line_blue, line_alpha);
+            // unnecessary muts due to iterator shenanigans
+            let mut forward = hx_pix..mx_pix;
+            let mut reverse = (mx_pix..hx_pix).rev();
+            
+            let line :&mut dyn Iterator<Item=_> = if edge_coefficients.right_major {
+                &mut forward
+            } else {
+                &mut reverse
+            };
+            
+            // edge stuff happens first, y stuff after?
+            for (i, coefficient) in interp_coefficients.iter().enumerate() {
+                vals[i] += coefficient.de();
+            }
+            
+            let mut line_vals :Vec<_> = vals.iter().copied().collect();
+            for x in line {
+                op(&self, x.into(), scanline.into(), fb, &line_vals);
+                
+                for (i, dx) in dx_vals.iter().enumerate() {
+                    line_vals[i] += dx;
+                }
+            }
+            scanline += 1;
+            
+            for (i, coefficient) in interp_coefficients.iter().enumerate() {
+                vals[i] += coefficient.dy();
+            }
+            
+            hx += edge_coefficients.dx_h_dy();
+            mx += edge_coefficients.dx_m_dy();
+        }
+        
+        let mut lx = edge_coefficients.xl();
+        
+        while scanline < edge_coefficients.yl() / 4 {
+            let hx_pix = hx >> 16;
+            let lx_pix = lx >> 16;
+            
+            // unnecessary muts due to iterator shenanigans
+            let mut forward = hx_pix..lx_pix;
+            let mut reverse = (lx_pix..hx_pix).rev();
+            
+            let line :&mut dyn Iterator<Item=_> = if edge_coefficients.right_major {
+                &mut forward
+            } else {
+                &mut reverse
+            };
+            
+            // edge stuff happens first, y stuff after?
+            for (i, coefficient) in interp_coefficients.iter().enumerate() {
+                vals[i] += coefficient.de();
+            }
+            
+            let mut line_vals :Vec<_> = vals.iter().copied().collect();
+            for x in line {
+                op(&self, x.into(), scanline.into(), fb, &line_vals);
+                
+                for (i, dx) in dx_vals.iter().enumerate() {
+                    line_vals[i] += dx;
+                }
+            }
+            scanline += 1;
+                
+            for (i, coefficient) in interp_coefficients.iter().enumerate() {
+                vals[i] += coefficient.dy();
+            }
+            
+            hx += edge_coefficients.dx_h_dy();
+            lx += edge_coefficients.dx_l_dy();
+        }
+    }
+    
+    fn fill_between_pixels(&self, fb: &mut [u8], x_start: usize, x_stop: usize, scanline: usize, color: [u8;4]) {
+        for x in x_start..=x_stop {
+            let index = ((scanline as usize) * 320 + (x as usize)) * 4;
+            for i in 0..4 {
+                fb[index+i] = color[i];
+            }
+        }
+    }
+    
+    pub fn draw_fill_tri(&self, fb: &mut [u8], coefficients: EdgeCoefficients, color: u32) {
+        // clip YH to previous multiple of 4 - this is where XM and XH are defined
+        let yh_whole_pixel = (coefficients.yh() / 4) * 4;
+        // Walk down edges using slopes
+        // (YH_whole, XH)
+        let mut scanline = yh_whole_pixel / 4;
+        let mut hx = coefficients.xh();
+        let mut mx = coefficients.xm();
+        
+        while scanline < coefficients.ym() / 4 {
+            let hx_pix = hx >> 16;
+            let mx_pix = mx >> 16;
+            let left = if coefficients.right_major { hx_pix } else { mx_pix };
+            let right = if !coefficients.right_major { hx_pix } else { mx_pix };
+            self.fill_between_pixels(fb, left as usize, right as usize, scanline as usize, color.to_be_bytes());
+            hx += coefficients.dx_h_dy();
+            mx += coefficients.dx_m_dy();
+            scanline += 1;
+        }
+        
+        let mut lx = coefficients.xl();
+        
+        while scanline < coefficients.yl() / 4 {
+            let hx_pix = hx >> 16;
+            let lx_pix = lx >> 16;
+            let left = if coefficients.right_major { hx_pix } else { lx_pix };
+            let right = if !coefficients.right_major { hx_pix } else { lx_pix };
+            self.fill_between_pixels(fb, left as usize, right as usize, scanline as usize, color.to_be_bytes());
+            hx = hx.wrapping_add(coefficients.dx_h_dy());
+            lx = lx.wrapping_add(coefficients.dx_l_dy());
+            scanline += 1;
+        }
+    }
+    
+    pub fn draw_textured_tri(&self, fb: &mut [u8], edge_coefficients: EdgeCoefficients, texture_coefficients: TextureCoefficients) {
+        let op = |rdp: &RDP, x: i32, scanline: i32, fb: &mut [u8], vals: &Vec<i32>| {
+            assert!(vals.len() == 3);
+            let line_s = ((vals[0] as u32) >> 16) / 32;
+            let line_t = ((vals[1] as u32) >> 16) / 32;
+            let line_w = ((vals[2] as u32) >> 16) / 32;
+            //println!("Texture coordinates for pixel {},{} are {:#010X}, {:#010X}, {:#010X}",
+                     //x, scanline, line_s, line_t, line_w);
+            // Get texture color here based on coordinates
+            let t_offset = line_t * ((rdp.tiles[rdp.active_tile as usize].line_width * 4) as u32);
+            let mut base_addr = ((rdp.tiles[rdp.active_tile as usize].tmem_addr as u32) + ((line_s + t_offset) * 4)) as usize;
+            //println!("Base address is {:#010X}", base_addr);
+            // TODO deal with loading upper half of pixel in upper half of TMEM
+            if base_addr > 4092 {
+                base_addr = 4092;
+            }
+            let red = rdp.texmem[base_addr + 0];
+            let green = rdp.texmem[base_addr + 1];
+            let blue = rdp.texmem[base_addr + 2];
+            let alpha = rdp.texmem[base_addr + 3];
+            
+            let color = [red, green, blue, alpha];
+            let print_color = u32::from_be_bytes(color);
+            //println!("The color is {:#010X}", print_color);
+            let index = ((scanline as usize) * 320 + (x as usize)) * 4;
+            for i in 0..4 {
+                fb[index+i] = color[i]; 
+            }
+        };
+        self.interpolate_over_triangle(fb, edge_coefficients, texture_coefficients.to_vec(), op);
+    }
+    
+    pub fn draw_shade_tri(&self, fb: &mut [u8], edge_coefficients: EdgeCoefficients, shade_coefficients: ShadeCoefficients) {
+        let op = |rdp: &RDP, x: i32, scanline: i32, fb: &mut [u8], vals: &Vec<i32>| {
+            assert!(vals.len() == 4);
+            let color = to_rgba(vals[0], vals[1], vals[2], vals[3]);
             let color = color.to_be_bytes();
             let index = ((scanline as usize) * 320 + (x as usize)) * 4;
             for i in 0..4 {
                 fb[index+i] = color[i];
             }
-            line_red += dr_dx;
-            line_green += dg_dx;
-            line_blue += db_dx;
-            line_alpha += da_dx;
-        }
-        scanline += 1;
-        
-        red += shade_coefficients.dr_dy();
-        green += shade_coefficients.dg_dy();
-        blue += shade_coefficients.db_dy();
-        alpha += shade_coefficients.da_dy();
-        
-        hx += edge_coefficients.dx_h_dy();
-        mx += edge_coefficients.dx_m_dy();
-    }
-    
-    let mut lx = edge_coefficients.xl();
-    
-    while scanline < edge_coefficients.yl() / 4 {
-        let hx_pix = hx >> 16;
-        let lx_pix = lx >> 16;
-        
-        // unnecessary muts due to iterator shenanigans
-        let mut forward = hx_pix..lx_pix;
-        let mut reverse = (lx_pix..hx_pix).rev();
-        
-        let line :&mut dyn Iterator<Item=_> = if edge_coefficients.right_major {
-            &mut forward
-        } else {
-            &mut reverse
         };
-        
-        // edge stuff happens first, y stuff after?
-        red += shade_coefficients.dr_de();
-        green += shade_coefficients.dg_de();
-        blue += shade_coefficients.db_de();
-        alpha += shade_coefficients.da_de();
-            
-        let mut line_red = red;
-        let mut line_green = green;
-        let mut line_blue = blue;
-        let mut line_alpha = alpha;
-        for x in line {
-            let color = to_rgba(line_red, line_green, line_blue, line_alpha);
-            let color = color.to_be_bytes();
-            let index = ((scanline as usize) * 320 + (x as usize)) * 4;
-            for i in 0..4 {
-                fb[index+i] = color[i];
-            }
-            line_red += dr_dx;
-            line_green += dg_dx;
-            line_blue += db_dx;
-            line_alpha += da_dx;
-        }
-        scanline += 1;
-        
-        red += shade_coefficients.dr_dy();
-        green += shade_coefficients.dg_dy();
-        blue += shade_coefficients.db_dy();
-        alpha += shade_coefficients.da_dy();
-        
-        hx += edge_coefficients.dx_h_dy();
-        lx += edge_coefficients.dx_l_dy();
+        self.interpolate_over_triangle(fb, edge_coefficients, shade_coefficients.to_vec(), op);
     }
-}
-
-pub fn draw_fill_rect(fb: &mut [u8], rectangle: Rectangle, color: u32) {
-    let xh_pix = rectangle.xh >> 2;
-    let yh_pix = rectangle.yh >> 2;
-    let xl_pix = rectangle.xl >> 2;
-    let yl_pix = rectangle.yl >> 2;
     
-    let fake_color :u32 = 0x55AA55FF;
-    for y in yh_pix..=yl_pix {
-        fill_between_pixels(fb, xh_pix as usize, xl_pix as usize, y as usize, fake_color.to_be_bytes());
+    pub fn draw_fill_rect(&self, fb: &mut [u8], rectangle: Rectangle, color: u32) {
+        let xh_pix = rectangle.xh >> 2;
+        let yh_pix = rectangle.yh >> 2;
+        let xl_pix = rectangle.xl >> 2;
+        let yl_pix = rectangle.yl >> 2;
+        
+        let fake_color :u32 = 0x55AA55FF;
+        for y in yh_pix..=yl_pix {
+            self.fill_between_pixels(fb, xh_pix as usize, xl_pix as usize, y as usize, fake_color.to_be_bytes());
+        }
     }
 }
 
